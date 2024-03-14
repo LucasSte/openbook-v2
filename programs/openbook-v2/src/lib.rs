@@ -1,17 +1,14 @@
-//! A central-limit order book (CLOB) program that targets the Sealevel runtime.
-
 use anchor_lang::prelude::{
     borsh::{BorshDeserialize},
     *,
 };
-use crate::error::OpenBookError;
-use crate::pubkey_option::NonZeroKey;
 
-declare_id!("9QJrVWzEaZBjao31iqBNaGqmXUNim7tmdb9kgczqGQXD");
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{Mint, Token, TokenAccount},
+};
 
-
-pub mod error;
-pub mod pubkey_option;
+declare_id!("GadiNvZtDS8JhBYtYn3534UrooyJkk4qBhk1rgWSvHQS");
 
 
 #[derive(AnchorDeserialize, AnchorSerialize, Debug, Clone)]
@@ -20,18 +17,12 @@ pub struct OracleConfigParams {
     pub max_staleness_slots: Option<u32>,
 }
 
-use anchor_spl::{
-    associated_token::AssociatedToken,
-    token::{Mint, Token, TokenAccount},
-};
-
 #[account(zero_copy)]
 pub struct MyStruct1 {
     a: u64,
     b: u64,
 }
 
-#[event_cpi]
 #[derive(Accounts)]
 pub struct CreateMarket<'info> {
     #[account(
@@ -96,6 +87,11 @@ pub struct CreateMarket<'info> {
     pub close_market_admin: Option<UncheckedAccount<'info>>,
 }
 
+#[error_code]
+pub enum OpenBookError {
+    #[msg("Cannot configure secondary oracle without primary")]
+    InvalidSecondOracle,
+}
 
 #[program]
 pub mod openbook_v2 {
@@ -115,8 +111,8 @@ pub mod openbook_v2 {
     ) -> Result<()> {
         msg!("Starting");
 
-        let oracle_a = ctx.accounts.oracle_a.non_zero_key();
-        let oracle_b = ctx.accounts.oracle_b.non_zero_key();
+        let oracle_a = &ctx.accounts.oracle_a;
+        let oracle_b = &ctx.accounts.oracle_b;
     
         // true, false
         msg!("Ora: {}, Orb: {}", oracle_a.is_some(), oracle_b.is_some());
