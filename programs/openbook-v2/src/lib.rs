@@ -10,16 +10,92 @@ use crate::pubkey_option::NonZeroKey;
 declare_id!("9QJrVWzEaZBjao31iqBNaGqmXUNim7tmdb9kgczqGQXD");
 
 
-pub mod accounts_ix;
-pub mod accounts_zerocopy;
 pub mod error;
-pub mod logs;
 pub mod pubkey_option;
-pub mod state;
 
 
-use accounts_ix::*;
-use state::{OracleConfigParams};
+#[derive(AnchorDeserialize, AnchorSerialize, Debug, Clone)]
+pub struct OracleConfigParams {
+    pub conf_filter: f32,
+    pub max_staleness_slots: Option<u32>,
+}
+
+use anchor_spl::{
+    associated_token::AssociatedToken,
+    token::{Mint, Token, TokenAccount},
+};
+
+#[account(zero_copy)]
+pub struct MyStruct1 {
+    a: u64,
+    b: u64,
+}
+
+#[event_cpi]
+#[derive(Accounts)]
+pub struct CreateMarket<'info> {
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + std::mem::size_of::<MyStruct1>(),
+    )]
+    pub market: AccountLoader<'info, MyStruct1>,
+    #[account(
+        seeds = [b"Market".as_ref(), market.key().to_bytes().as_ref()],
+        bump,
+    )]
+    /// CHECK:
+    pub market_authority: UncheckedAccount<'info>,
+
+    /// Accounts are initialized by client,
+    /// anchor discriminator is set first when ix exits,
+    #[account(zero)]
+    pub bids: AccountLoader<'info, MyStruct1>,
+    #[account(zero)]
+    pub asks: AccountLoader<'info, MyStruct1>,
+    #[account(zero)]
+    pub event_heap: AccountLoader<'info, MyStruct1>,
+
+    #[account(mut)]
+    pub payer: Signer<'info>,
+
+    #[account(
+        init,
+        payer = payer,
+        associated_token::mint = base_mint,
+        associated_token::authority = market_authority,
+    )]
+    pub market_base_vault: Account<'info, TokenAccount>,
+    #[account(
+        init,
+        payer = payer,
+        associated_token::mint = quote_mint,
+        associated_token::authority = market_authority,
+    )]
+    pub market_quote_vault: Account<'info, TokenAccount>,
+
+    #[account(constraint = base_mint.key() != quote_mint.key())]
+    pub base_mint: Box<Account<'info, Mint>>,
+    pub quote_mint: Box<Account<'info, Mint>>,
+
+    pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    /// CHECK: The oracle can be one of several different account types
+    pub oracle_a: Option<UncheckedAccount<'info>>,
+    /// CHECK: The oracle can be one of several different account types
+    pub oracle_b: Option<UncheckedAccount<'info>>,
+
+    /// CHECK:
+    pub collect_fee_admin: UncheckedAccount<'info>,
+    /// CHECK:
+    pub open_orders_admin: Option<UncheckedAccount<'info>>,
+    /// CHECK:
+    pub consume_events_admin: Option<UncheckedAccount<'info>>,
+    /// CHECK:
+    pub close_market_admin: Option<UncheckedAccount<'info>>,
+}
+
 
 #[program]
 pub mod openbook_v2 {
@@ -38,9 +114,11 @@ pub mod openbook_v2 {
         _time_expiry: i64,
     ) -> Result<()> {
         msg!("Starting");
+
         let oracle_a = ctx.accounts.oracle_a.non_zero_key();
         let oracle_b = ctx.accounts.oracle_b.non_zero_key();
     
+        // true, false
         msg!("Ora: {}, Orb: {}", oracle_a.is_some(), oracle_b.is_some());
         if oracle_b.is_some() {
             msg!("Inside Err branch");
