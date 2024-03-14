@@ -19,6 +19,7 @@ pub fn create_market(
     taker_fee: i64,
     time_expiry: i64,
 ) -> Result<()> {
+    msg!("Starting!!");
     let registration_time = Clock::get()?.unix_timestamp;
 
     require!(
@@ -39,24 +40,30 @@ pub fn create_market(
         OpenBookError::InvalidInputMarketExpired
     );
 
+    msg!("After requires!");
     require_gt!(quote_lot_size, 0, OpenBookError::InvalidInputLots);
     require_gt!(base_lot_size, 0, OpenBookError::InvalidInputLots);
 
+    msg!("After require_gts");
     let oracle_a = ctx.accounts.oracle_a.non_zero_key();
     let oracle_b = ctx.accounts.oracle_b.non_zero_key();
 
+    msg!("Ora: {}, Orb: {}", oracle_a.is_some(), oracle_b.is_some());
     if oracle_a.is_some() && oracle_b.is_some() {
         let oracle_a = AccountInfoRef::borrow(ctx.accounts.oracle_a.as_ref().unwrap())?;
         let oracle_b = AccountInfoRef::borrow(ctx.accounts.oracle_b.as_ref().unwrap())?;
 
+        msg!("Inside If");
         require!(
             oracle::determine_oracle_type(&oracle_a) == oracle::determine_oracle_type(&oracle_b),
             OpenBookError::InvalidOracleTypes
         );
     } else if oracle_b.is_some() {
+        msg!("Inside Err branch");
         return Err(OpenBookError::InvalidSecondOracle.into());
     }
 
+    msg!("Before open market");
     let mut openbook_market = ctx.accounts.market.load_init()?;
     *openbook_market = Market {
         market_authority: ctx.accounts.market_authority.key(),
