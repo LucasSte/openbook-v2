@@ -4,14 +4,10 @@ use anchor_lang::prelude::{
     borsh::{BorshDeserialize},
     *,
 };
-use crate::error::OpenBookError;
-use crate::pubkey_option::NonZeroKey;
 
-declare_id!("9QJrVWzEaZBjao31iqBNaGqmXUNim7tmdb9kgczqGQXD");
+declare_id!("Fd8e5ytFgUtiWHDsD59sQaydRY4Dp9xKK6BFAdkE2WC5");
 
 
-pub mod error;
-pub mod pubkey_option;
 
 
 #[derive(AnchorDeserialize, AnchorSerialize, Debug, Clone)]
@@ -74,7 +70,6 @@ pub struct CreateMarket<'info> {
     )]
     pub market_quote_vault: Account<'info, TokenAccount>,
 
-    #[account(constraint = base_mint.key() != quote_mint.key())]
     pub base_mint: Box<Account<'info, Mint>>,
     pub quote_mint: Box<Account<'info, Mint>>,
 
@@ -86,14 +81,6 @@ pub struct CreateMarket<'info> {
     /// CHECK: The oracle can be one of several different account types
     pub oracle_b: Option<UncheckedAccount<'info>>,
 
-    /// CHECK:
-    pub collect_fee_admin: UncheckedAccount<'info>,
-    /// CHECK:
-    pub open_orders_admin: Option<UncheckedAccount<'info>>,
-    /// CHECK:
-    pub consume_events_admin: Option<UncheckedAccount<'info>>,
-    /// CHECK:
-    pub close_market_admin: Option<UncheckedAccount<'info>>,
 }
 
 
@@ -104,7 +91,7 @@ pub mod openbook_v2 {
     /// Create a [`Market`](crate::state::Market) for a given token pair.
     #[allow(clippy::too_many_arguments)]
     pub fn create_market(
-        ctx: Context<CreateMarket>,
+        _ctx: Context<CreateMarket>,
         _name: String,
         _oracle_config: OracleConfigParams,
         _quote_lot_size: i64,
@@ -115,15 +102,15 @@ pub mod openbook_v2 {
     ) -> Result<()> {
         msg!("Starting");
 
-        let oracle_a = ctx.accounts.oracle_a.non_zero_key();
-        let oracle_b = ctx.accounts.oracle_b.non_zero_key();
+        // let oracle_a = ctx.accounts.oracle_a.non_zero_key();
+        // let oracle_b = ctx.accounts.oracle_b.non_zero_key();
     
-        // true, false
-        msg!("Ora: {}, Orb: {}", oracle_a.is_some(), oracle_b.is_some());
-        if oracle_b.is_some() {
-            msg!("Inside Err branch");
-            return Err(OpenBookError::InvalidSecondOracle.into());
-        }
+        // // true, false
+        // msg!("Ora: {}, Orb: {}", oracle_a.is_some(), oracle_b.is_some());
+        // if oracle_b.is_some() {
+        //     msg!("Inside Err branch");
+        //     return Err(OpenBookError::InvalidSecondOracle.into());
+        // }
     
         msg!("Before open market");
         Ok(())
