@@ -1,5 +1,8 @@
 #![feature(derive_clone_copy)]
 #![feature(prelude_import)]
+//! A central-limit order book (CLOB) program that targets the Sealevel runtime.
+#[prelude_import]
+use std::prelude::rust_2021::*;
 #[macro_use]
 extern crate std;
 use anchor_lang::prelude::{borsh::BorshDeserialize, *};
@@ -39,7 +42,14 @@ pub static ID: anchor_lang::solana_program::pubkey::Pubkey = anchor_lang::solana
     230u8,
     246u8,
 ]);
-
+/// Confirms that a given pubkey is equivalent to the program ID
+pub fn check_id(id: &anchor_lang::solana_program::pubkey::Pubkey) -> bool {
+    id == &ID
+}
+/// Returns the program ID
+pub fn id() -> anchor_lang::solana_program::pubkey::Pubkey {
+    ID
+}
 pub struct OracleConfigParams {
     pub conf_filter: f32,
     pub max_staleness_slots: Option<u32>,
@@ -828,8 +838,28 @@ where
                     .with_account_name("event_heap"),
             );
         }
-        let e2 : [u8; 64] = [2; 64];
-        let e1 : [u8; 64] = [1; 64];
+        if !payer.to_account_info().is_writable {
+            return Err(
+                anchor_lang::error::Error::from(
+                        anchor_lang::error::ErrorCode::ConstraintMut,
+                    )
+                    .with_account_name("payer"),
+            );
+        }
+        let (__pda_address, __bump) = Pubkey::find_program_address(
+            &[b"__event_authority"],
+            &__program_id,
+        );
+        __bumps.insert("event_authority".to_string(), __bump);
+        if event_authority.key() != __pda_address {
+            return Err(
+                anchor_lang::error::Error::from(
+                        anchor_lang::error::ErrorCode::ConstraintSeeds,
+                    )
+                    .with_account_name("event_authority")
+                    .with_pubkeys((event_authority.key(), __pda_address)),
+            );
+        }
         Ok(CreateMarket {
             market,
             market_authority,
@@ -1331,9 +1361,46 @@ pub(crate) mod __cpi_client_accounts_create_market {
         }
     }
 }
+use self::openbook_v2::*;
 
 solana_program::entrypoint!(entry);
-
+///xs
+/// The Anchor codegen exposes a programming model where a user defines
+/// a set of methods inside of a `#[program]` module in a way similar
+/// to writing RPC request handlers. The macro then generates a bunch of
+/// code wrapping these user defined methods into something that can be
+/// executed on Solana.
+///
+/// These methods fall into one categorie for now.
+///
+/// Global methods - regular methods inside of the `#[program]`.
+///
+/// Care must be taken by the codegen to prevent collisions between
+/// methods in these different namespaces. For this reason, Anchor uses
+/// a variant of sighash to perform method dispatch, rather than
+/// something like a simple enum variant discriminator.
+///
+/// The execution flow of the generated code can be roughly outlined:
+///
+/// * Start program via the entrypoint.
+/// * Strip method identifier off the first 8 bytes of the instruction
+///   data and invoke the identified method. The method identifier
+///   is a variant of sighash. See docs.rs for `anchor_lang` for details.
+/// * If the method identifier is an IDL identifier, execute the IDL
+///   instructions, which are a special set of hardcoded instructions
+///   baked into every Anchor program. Then exit.
+/// * Otherwise, the method identifier is for a user defined
+///   instruction, i.e., one of the methods in the user defined
+///   `#[program]` module. Perform method dispatch, i.e., execute the
+///   big match statement mapping method identifier to method handler
+///   wrapper.
+/// * Run the method handler wrapper. This wraps the code the user
+///   actually wrote, deserializing the accounts, constructing the
+///   context, invoking the user's code, and finally running the exit
+///   routine, which typically persists account changes.
+///
+/// The `entry` function here, defines the standard entry to a Solana
+/// program, where execution begins.
 pub fn entry(
     program_id: &Pubkey,
     accounts: &[AccountInfo],
@@ -1350,6 +1417,9 @@ fn try_entry(
     accounts: &[AccountInfo],
     data: &[u8],
 ) -> anchor_lang::Result<()> {
+    if *program_id != ID {
+        return Err(anchor_lang::error::ErrorCode::DeclaredProgramIdMismatch.into());
+    }
     if data.len() < 8 {
         return Err(anchor_lang::error::ErrorCode::InstructionMissing.into());
     }
@@ -1400,7 +1470,19 @@ fn dispatch(
         ix_data = &ix_data[8..];
         sighash
     };
-    __private::__global::create_market(program_id, accounts, ix_data)
+    use anchor_lang::Discriminator;
+    match sighash {
+        instruction::CreateMarket::DISCRIMINATOR => {
+            __private::__global::create_market(program_id, accounts, ix_data)
+        }
+        anchor_lang::idl::IDL_IX_TAG_LE => {
+            __private::__idl::__idl_dispatch(program_id, accounts, &ix_data)
+        }
+        anchor_lang::event::EVENT_IX_TAG_LE => {
+            __private::__events::__event_dispatch(program_id, accounts, &ix_data)
+        }
+        _ => Err(anchor_lang::error::ErrorCode::InstructionFallbackNotFound.into()),
+    }
 }
 /// Create a private module to not clutter the program's namespace.
 /// Defines an entrypoint for each individual instruction handler
@@ -1410,6 +1492,114 @@ mod __private {
     /// __idl mod defines handlers for injected Anchor IDL instructions.
     pub mod __idl {
         use super::*;
+        #[inline(never)]
+        #[cfg(not(feature = "no-idl"))]
+        pub fn __idl_dispatch(
+            program_id: &Pubkey,
+            accounts: &[AccountInfo],
+            idl_ix_data: &[u8],
+        ) -> anchor_lang::Result<()> {
+            let mut accounts = accounts;
+            let mut data: &[u8] = idl_ix_data;
+            let ix = anchor_lang::idl::IdlInstruction::deserialize(&mut data)
+                .map_err(|_| {
+                    anchor_lang::error::ErrorCode::InstructionDidNotDeserialize
+                })?;
+            match ix {
+                anchor_lang::idl::IdlInstruction::Create { data_len } => {
+                    let mut bumps = std::collections::BTreeMap::new();
+                    let mut reallocs = std::collections::BTreeSet::new();
+                    let mut accounts = IdlCreateAccounts::try_accounts(
+                        program_id,
+                        &mut accounts,
+                        &[],
+                        &mut bumps,
+                        &mut reallocs,
+                    )?;
+                    __idl_create_account(program_id, &mut accounts, data_len)?;
+                    accounts.exit(program_id)?;
+                }
+                anchor_lang::idl::IdlInstruction::Resize { data_len } => {
+                    let mut bumps = std::collections::BTreeMap::new();
+                    let mut reallocs = std::collections::BTreeSet::new();
+                    let mut accounts = IdlResizeAccount::try_accounts(
+                        program_id,
+                        &mut accounts,
+                        &[],
+                        &mut bumps,
+                        &mut reallocs,
+                    )?;
+                    __idl_resize_account(program_id, &mut accounts, data_len)?;
+                    accounts.exit(program_id)?;
+                }
+                anchor_lang::idl::IdlInstruction::Close => {
+                    let mut bumps = std::collections::BTreeMap::new();
+                    let mut reallocs = std::collections::BTreeSet::new();
+                    let mut accounts = IdlCloseAccount::try_accounts(
+                        program_id,
+                        &mut accounts,
+                        &[],
+                        &mut bumps,
+                        &mut reallocs,
+                    )?;
+                    __idl_close_account(program_id, &mut accounts)?;
+                    accounts.exit(program_id)?;
+                }
+                anchor_lang::idl::IdlInstruction::CreateBuffer => {
+                    let mut bumps = std::collections::BTreeMap::new();
+                    let mut reallocs = std::collections::BTreeSet::new();
+                    let mut accounts = IdlCreateBuffer::try_accounts(
+                        program_id,
+                        &mut accounts,
+                        &[],
+                        &mut bumps,
+                        &mut reallocs,
+                    )?;
+                    __idl_create_buffer(program_id, &mut accounts)?;
+                    accounts.exit(program_id)?;
+                }
+                anchor_lang::idl::IdlInstruction::Write { data } => {
+                    let mut bumps = std::collections::BTreeMap::new();
+                    let mut reallocs = std::collections::BTreeSet::new();
+                    let mut accounts = IdlAccounts::try_accounts(
+                        program_id,
+                        &mut accounts,
+                        &[],
+                        &mut bumps,
+                        &mut reallocs,
+                    )?;
+                    __idl_write(program_id, &mut accounts, data)?;
+                    accounts.exit(program_id)?;
+                }
+                anchor_lang::idl::IdlInstruction::SetAuthority { new_authority } => {
+                    let mut bumps = std::collections::BTreeMap::new();
+                    let mut reallocs = std::collections::BTreeSet::new();
+                    let mut accounts = IdlAccounts::try_accounts(
+                        program_id,
+                        &mut accounts,
+                        &[],
+                        &mut bumps,
+                        &mut reallocs,
+                    )?;
+                    __idl_set_authority(program_id, &mut accounts, new_authority)?;
+                    accounts.exit(program_id)?;
+                }
+                anchor_lang::idl::IdlInstruction::SetBuffer => {
+                    let mut bumps = std::collections::BTreeMap::new();
+                    let mut reallocs = std::collections::BTreeSet::new();
+                    let mut accounts = IdlSetBuffer::try_accounts(
+                        program_id,
+                        &mut accounts,
+                        &[],
+                        &mut bumps,
+                        &mut reallocs,
+                    )?;
+                    __idl_set_buffer(program_id, &mut accounts)?;
+                    accounts.exit(program_id)?;
+                }
+            }
+            Ok(())
+        }
         use anchor_lang::idl::ERASED_AUTHORITY;
         pub struct IdlAccount {
             pub authority: Pubkey,
@@ -1517,6 +1707,11 @@ mod __private {
             const DISCRIMINATOR: [u8; 8] = [24, 70, 98, 191, 58, 144, 123, 158];
         }
         impl IdlAccount {
+            pub fn address(program_id: &Pubkey) -> Pubkey {
+                let program_signer = Pubkey::find_program_address(&[], program_id).0;
+                Pubkey::create_with_seed(&program_signer, IdlAccount::seed(), program_id)
+                    .expect("Seed is always valid")
+            }
             pub fn seed() -> &'static str {
                 "anchor:idl"
             }
@@ -3343,6 +3538,7 @@ mod __private {
                     ::std::convert::TryInto::<u32>::try_into(idl_data.len()).unwrap(),
                 )
                 .unwrap();
+            use IdlTrailingData;
             let mut idl_bytes = accounts.idl.trailing_data_mut();
             let idl_expansion = &mut idl_bytes[prev_len..new_len];
             if idl_expansion.len() != idl_data.len() {
@@ -3385,6 +3581,7 @@ mod __private {
         ) -> anchor_lang::Result<()> {
             ::solana_program::log::sol_log("Instruction: IdlSetBuffer");
             accounts.idl.data_len = accounts.buffer.data_len;
+            use IdlTrailingData;
             let buffer_len = ::std::convert::TryInto::<
                 usize,
             >::try_into(accounts.buffer.data_len)
@@ -3448,14 +3645,79 @@ mod __private {
                 &mut __bumps,
                 &mut __reallocs,
             )?;
-            let ctx = anchor_lang::context::Context::new(
-                __program_id,
-                &mut __accounts,
-                __remaining_accounts,
-                __bumps,
+            let result = openbook_v2::create_market(
+                anchor_lang::context::Context::new(
+                    __program_id,
+                    &mut __accounts,
+                    __remaining_accounts,
+                    __bumps,
+                ),
+                _name,
+                _oracle_config,
+                _quote_lot_size,
+                _base_lot_size,
+                _maker_fee,
+                _taker_fee,
+                _time_expiry,
+            )?;
+            __accounts.exit(__program_id)
+        }
+    }
+    /// __events mod defines handler for self-cpi based event logging
+    pub mod __events {
+        use super::*;
+        #[inline(never)]
+        pub fn __event_dispatch(
+            program_id: &Pubkey,
+            accounts: &[AccountInfo],
+            event_data: &[u8],
+        ) -> anchor_lang::Result<()> {
+            let given_event_authority = next_account_info(&mut accounts.iter())?;
+            if !given_event_authority.is_signer {
+                return Err(
+                    anchor_lang::error::Error::from(
+                            anchor_lang::error::ErrorCode::ConstraintSigner,
+                        )
+                        .with_account_name("event_authority"),
+                );
+            }
+            let (expected_event_authority, _) = Pubkey::find_program_address(
+                &[b"__event_authority"],
+                &program_id,
             );
+            if given_event_authority.key() != expected_event_authority {
+                return Err(
+                    anchor_lang::error::Error::from(
+                            anchor_lang::error::ErrorCode::ConstraintSeeds,
+                        )
+                        .with_account_name("event_authority")
+                        .with_pubkeys((
+                            given_event_authority.key(),
+                            expected_event_authority,
+                        )),
+                );
+            }
             Ok(())
         }
+    }
+}
+pub mod openbook_v2 {
+    use super::*;
+    /// Create a [`Market`](crate::state::Market) for a given token pair.
+    #[allow(clippy::too_many_arguments)]
+    pub fn create_market(
+        _ctx: Context<CreateMarket>,
+        _name: String,
+        _oracle_config: OracleConfigParams,
+        _quote_lot_size: i64,
+        _base_lot_size: i64,
+        _maker_fee: i64,
+        _taker_fee: i64,
+        _time_expiry: i64,
+    ) -> Result<()> {
+        ::solana_program::log::sol_log("Starting");
+        ::solana_program::log::sol_log("Before open market");
+        Ok(())
     }
 }
 /// An Anchor generated module containing the program's set of
