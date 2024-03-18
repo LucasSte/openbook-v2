@@ -470,22 +470,6 @@ where
             }
             pa
         };
-        if !market.to_account_info().is_writable {
-            return Err(
-                anchor_lang::error::Error::from(
-                        anchor_lang::error::ErrorCode::ConstraintMut,
-                    )
-                    .with_account_name("market"),
-            );
-        }
-        if !market.to_account_info().is_signer {
-            return Err(
-                anchor_lang::error::Error::from(
-                        anchor_lang::error::ErrorCode::ConstraintSigner,
-                    )
-                    .with_account_name("market"),
-            );
-        }
         if !__anchor_rent
             .is_exempt(
                 market.to_account_info().lamports(),
@@ -570,14 +554,6 @@ where
             }
             pa
         };
-        if !market_base_vault.to_account_info().is_writable {
-            return Err(
-                anchor_lang::error::Error::from(
-                        anchor_lang::error::ErrorCode::ConstraintMut,
-                    )
-                    .with_account_name("market_base_vault"),
-            );
-        }
         if !__anchor_rent
             .is_exempt(
                 market_base_vault.to_account_info().lamports(),
@@ -662,14 +638,6 @@ where
             }
             pa
         };
-        if !market_quote_vault.to_account_info().is_writable {
-            return Err(
-                anchor_lang::error::Error::from(
-                        anchor_lang::error::ErrorCode::ConstraintMut,
-                    )
-                    .with_account_name("market_quote_vault"),
-            );
-        }
         if !__anchor_rent
             .is_exempt(
                 market_quote_vault.to_account_info().lamports(),
@@ -683,153 +651,52 @@ where
                     .with_account_name("market_quote_vault"),
             );
         }
-        let (__pda_address, __bump) = Pubkey::find_program_address(
-            &[b"Market".as_ref(), market.key().to_bytes().as_ref()],
-            &__program_id,
-        );
-        __bumps.insert("market_authority".to_string(), __bump);
-        if market_authority.key() != __pda_address {
-            return Err(
-                anchor_lang::error::Error::from(
-                        anchor_lang::error::ErrorCode::ConstraintSeeds,
-                    )
-                    .with_account_name("market_authority")
-                    .with_pubkeys((market_authority.key(), __pda_address)),
-            );
-        }
+        __bumps.insert("market_authority".to_string(), 25);
         let __anchor_rent = Rent::get()?;
-        let bids: anchor_lang::accounts::account_loader::AccountLoader<MyStruct1> = {
-            let mut __data: &[u8] = &bids.try_borrow_data()?;
-            let mut __disc_bytes = [0u8; 8];
-            __disc_bytes.copy_from_slice(&__data[..8]);
-            let __discriminator = u64::from_le_bytes(__disc_bytes);
-            if __discriminator != 0 {
-                return Err(
-                    anchor_lang::error::Error::from(
-                            anchor_lang::error::ErrorCode::ConstraintZero,
-                        )
-                        .with_account_name("bids"),
-                );
-            }
+        let bids: anchor_lang::accounts::account_loader::AccountLoader<MyStruct1> =
             match anchor_lang::accounts::account_loader::AccountLoader::try_from_unchecked(
                 __program_id,
                 &bids,
             ) {
                 Ok(val) => val,
                 Err(e) => return Err(e.with_account_name("bids")),
-            }
-        };
-        if !bids.to_account_info().is_writable {
-            return Err(
-                anchor_lang::error::Error::from(
-                        anchor_lang::error::ErrorCode::ConstraintMut,
-                    )
-                    .with_account_name("bids"),
-            );
-        }
-        if !__anchor_rent
-            .is_exempt(
-                bids.to_account_info().lamports(),
-                bids.to_account_info().try_data_len()?,
-            )
-        {
-            return Err(
-                anchor_lang::error::Error::from(
-                        anchor_lang::error::ErrorCode::ConstraintRentExempt,
-                    )
-                    .with_account_name("bids"),
-            );
-        }
+            };
+
+        let val3 = __anchor_rent
+        .is_exempt(
+            25,
+            25,
+        );
         let __anchor_rent = Rent::get()?;
-        let asks: anchor_lang::accounts::account_loader::AccountLoader<MyStruct1> = {
-            let mut __data: &[u8] = &asks.try_borrow_data()?;
-            let mut __disc_bytes = [0u8; 8];
-            __disc_bytes.copy_from_slice(&__data[..8]);
-            let __discriminator = u64::from_le_bytes(__disc_bytes);
-            if __discriminator != 0 {
-                return Err(
-                    anchor_lang::error::Error::from(
-                            anchor_lang::error::ErrorCode::ConstraintZero,
-                        )
-                        .with_account_name("asks"),
-                );
-            }
+        let asks: anchor_lang::accounts::account_loader::AccountLoader<MyStruct1> = 
             match anchor_lang::accounts::account_loader::AccountLoader::try_from_unchecked(
                 __program_id,
                 &asks,
             ) {
                 Ok(val) => val,
                 Err(e) => return Err(e.with_account_name("asks")),
-            }
-        };
-        if !asks.to_account_info().is_writable {
-            return Err(
-                anchor_lang::error::Error::from(
-                        anchor_lang::error::ErrorCode::ConstraintMut,
-                    )
-                    .with_account_name("asks"),
-            );
-        }
-        if !__anchor_rent
-            .is_exempt(
-                asks.to_account_info().lamports(),
-                asks.to_account_info().try_data_len()?,
-            )
-        {
-            return Err(
-                anchor_lang::error::Error::from(
-                        anchor_lang::error::ErrorCode::ConstraintRentExempt,
-                    )
-                    .with_account_name("asks"),
-            );
-        }
-        let __anchor_rent = Rent::get()?;
+            };
+
+        let val2 = __anchor_rent
+        .is_exempt(
+            25,
+            25,
+        );
         let event_heap: anchor_lang::accounts::account_loader::AccountLoader<
             MyStruct1,
-        > = {
-            let mut __data: &[u8] = &event_heap.try_borrow_data()?;
-            let mut __disc_bytes = [0u8; 8];
-            __disc_bytes.copy_from_slice(&__data[..8]);
-            let __discriminator = u64::from_le_bytes(__disc_bytes);
-            if __discriminator != 0 {
-                return Err(
-                    anchor_lang::error::Error::from(
-                            anchor_lang::error::ErrorCode::ConstraintZero,
-                        )
-                        .with_account_name("event_heap"),
-                );
-            }
-            match anchor_lang::accounts::account_loader::AccountLoader::try_from_unchecked(
+        > = match anchor_lang::accounts::account_loader::AccountLoader::try_from_unchecked(
                 __program_id,
                 &event_heap,
             ) {
                 Ok(val) => val,
                 Err(e) => return Err(e.with_account_name("event_heap")),
-            }
-        };
-        if !event_heap.to_account_info().is_writable {
-            return Err(
-                anchor_lang::error::Error::from(
-                        anchor_lang::error::ErrorCode::ConstraintMut,
-                    )
-                    .with_account_name("event_heap"),
-            );
-        }
-        if !__anchor_rent
-            .is_exempt(
-                event_heap.to_account_info().lamports(),
-                event_heap.to_account_info().try_data_len()?,
-            )
-        {
-            return Err(
-                anchor_lang::error::Error::from(
-                        anchor_lang::error::ErrorCode::ConstraintRentExempt,
-                    )
-                    .with_account_name("event_heap"),
-            );
-        }
-        let e2 : [u8; 64] = [2; 64];
-        let e1 : [u8; 64] = [1; 64];
+            };
+        let __anchor_rent = Rent::get()?;
+        let val = __anchor_rent
+        .is_exempt(
+            25,
+            25,
+        );
         Ok(CreateMarket {
             market,
             market_authority,
