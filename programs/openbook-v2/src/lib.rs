@@ -92,26 +92,6 @@ pub struct CreateMarket<'info> {
     pub program: [u8; 64],
 }
 
-#[inline(never)]
-fn do_something(var1: [u8; 16], var2: &[u8]) -> [u8; 64] {
-    let mut res : [u8; 64] = [0; 64];
-    res[5] = var1[8];
-    res[60] = var2[res[1] as usize];
-    return res;
-}
-
-struct MyRent {
-    a: u64,
-    b: f64,
-    c: u8,
-}
-
-impl MyRent {
-    #[inline(never)]
-    fn test_exempt(&self, a: u64, b: u64) -> bool {
-        return a > b && a > self.a;
-    }
-}
 
 #[automatically_derived]
 impl<'info> anchor_lang::Accounts<'info> for CreateMarket<'info>
@@ -251,27 +231,28 @@ where
                         cpi_accounts,
                     );
                 }
+                solana_program::msg!("Trying market");
                 match anchor_lang::accounts::account_loader::AccountLoader::try_from_unchecked(
                     __program_id,
                     &market,
                 ) {
                     Ok(val) => val,
-                    Err(e) => return Err(e.with_account_name("market")),
+                    Err(e) => return Err(e.with_account_name("market1")),
                 }
             } else {
                 match anchor_lang::accounts::account_loader::AccountLoader::try_from(
                     &market,
                 ) {
                     Ok(val) => val,
-                    Err(e) => return Err(e.with_account_name("market")),
+                    Err(e) => return Err(e.with_account_name("market2")),
                 }
             };
+            solana_program::msg!("After market");
             pa
         };
         let val6 = __anchor_rent
             .is_exempt(
-                market_quote_vault.to_account_info().lamports(),
-                market_quote_vault.to_account_info().try_data_len()?,
+                25, 25
             );
         let __anchor_rent = Rent::get()?;
         let market_base_vault: anchor_lang::accounts::account::Account<TokenAccount> = {
@@ -458,7 +439,9 @@ fn dispatch(
         ix_data = &ix_data[8..];
         sighash
     };
-    __private::__global::create_market(program_id, accounts, ix_data)
+    let res = __private::__global::create_market(program_id, accounts, ix_data);
+    solana_program::msg!("after create market");
+    res
 }
 
 mod __private {
@@ -484,7 +467,11 @@ mod __private {
                 __ix_data,
                 &mut __bumps,
                 &mut __reallocs,
-            )?;
+            );
+            solana_program::msg!("After accounts");
+            let mut __accounts = __accounts?;
+
+            solana_program::msg!("Before new context");
             let ctx = anchor_lang::context::Context::new(
                 __program_id,
                 &mut __accounts,
