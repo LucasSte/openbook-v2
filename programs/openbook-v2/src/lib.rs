@@ -88,9 +88,31 @@ pub struct CreateMarket<'info> {
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
-    pub event_authority: AccountInfo<'info>,
-    pub program: AccountInfo<'info>,
+    pub event_authority: [u8; 64],
+    pub program: [u8; 64],
 }
+
+#[inline(never)]
+fn do_something(var1: [u8; 16], var2: &[u8]) -> [u8; 64] {
+    let mut res : [u8; 64] = [0; 64];
+    res[5] = var1[8];
+    res[60] = var2[res[1] as usize];
+    return res;
+}
+
+struct MyRent {
+    a: u64,
+    b: f64,
+    c: u8,
+}
+
+impl MyRent {
+    #[inline(never)]
+    fn test_exempt(&self, a: u64, b: u64) -> bool {
+        return a > b && a > self.a;
+    }
+}
+
 #[automatically_derived]
 impl<'info> anchor_lang::Accounts<'info> for CreateMarket<'info>
 where
@@ -123,14 +145,8 @@ where
         }
         let bids = &__accounts[0];
         *__accounts = &__accounts[1..];
-        if __accounts.is_empty() {
-            return Err(anchor_lang::error::ErrorCode::AccountNotEnoughKeys.into());
-        }
         let asks = &__accounts[0];
         *__accounts = &__accounts[1..];
-        if __accounts.is_empty() {
-            return Err(anchor_lang::error::ErrorCode::AccountNotEnoughKeys.into());
-        }
         let event_heap = &__accounts[0];
         *__accounts = &__accounts[1..];
         let payer: Signer = anchor_lang::Accounts::try_accounts(
@@ -141,14 +157,8 @@ where
                 __reallocs,
             )
             .map_err(|e| e.with_account_name("payer"))?;
-        if __accounts.is_empty() {
-            return Err(anchor_lang::error::ErrorCode::AccountNotEnoughKeys.into());
-        }
         let market_base_vault = &__accounts[0];
         *__accounts = &__accounts[1..];
-        if __accounts.is_empty() {
-            return Err(anchor_lang::error::ErrorCode::AccountNotEnoughKeys.into());
-        }
         let market_quote_vault = &__accounts[0];
         *__accounts = &__accounts[1..];
         let base_mint: Box<anchor_lang::accounts::account::Account<Mint>> = anchor_lang::Accounts::try_accounts(
@@ -193,22 +203,8 @@ where
                 __reallocs,
             )
             .map_err(|e| e.with_account_name("associated_token_program"))?;
-        let event_authority: AccountInfo = anchor_lang::Accounts::try_accounts(
-                __program_id,
-                __accounts,
-                __ix_data,
-                __bumps,
-                __reallocs,
-            )
-            .map_err(|e| e.with_account_name("event_authority"))?;
-        let program: AccountInfo = anchor_lang::Accounts::try_accounts(
-                __program_id,
-                __accounts,
-                __ix_data,
-                __bumps,
-                __reallocs,
-            )
-            .map_err(|e| e.with_account_name("program"))?;
+        let event_authority : [u8; 64] = [2; 64];
+        let program : [u8; 64] = [1; 64];
         let __anchor_rent = Rent::get()?;
         let market = {
             let actual_field = market.to_account_info();
@@ -377,7 +373,7 @@ where
                 Ok(val) => val,
                 Err(e) => return Err(e.with_account_name("event_heap")),
             };
-        let __anchor_rent = Rent::get()?;
+
         let val = __anchor_rent
         .is_exempt(
             25,
@@ -410,23 +406,7 @@ where
     fn to_account_infos(
         &self,
     ) -> Vec<anchor_lang::solana_program::account_info::AccountInfo<'info>> {
-        let mut account_infos = Vec::new();
-        account_infos.extend(self.market.to_account_infos());
-        account_infos.extend(self.market_authority.to_account_infos());
-        account_infos.extend(self.bids.to_account_infos());
-        account_infos.extend(self.asks.to_account_infos());
-        account_infos.extend(self.event_heap.to_account_infos());
-        account_infos.extend(self.payer.to_account_infos());
-        account_infos.extend(self.market_base_vault.to_account_infos());
-        account_infos.extend(self.market_quote_vault.to_account_infos());
-        account_infos.extend(self.base_mint.to_account_infos());
-        account_infos.extend(self.quote_mint.to_account_infos());
-        account_infos.extend(self.system_program.to_account_infos());
-        account_infos.extend(self.token_program.to_account_infos());
-        account_infos.extend(self.associated_token_program.to_account_infos());
-        account_infos.extend(self.event_authority.to_account_infos());
-        account_infos.extend(self.program.to_account_infos());
-        account_infos
+        Vec::new()
     }
 }
 #[automatically_derived]
@@ -436,375 +416,10 @@ impl<'info> anchor_lang::ToAccountMetas for CreateMarket<'info> {
         is_signer: Option<bool>,
     ) -> Vec<anchor_lang::solana_program::instruction::AccountMeta> {
         let mut account_metas = Vec::new();
-        account_metas.extend(self.market.to_account_metas(Some(true)));
-        account_metas.extend(self.market_authority.to_account_metas(None));
-        account_metas.extend(self.bids.to_account_metas(None));
-        account_metas.extend(self.asks.to_account_metas(None));
-        account_metas.extend(self.event_heap.to_account_metas(None));
-        account_metas.extend(self.payer.to_account_metas(None));
-        account_metas.extend(self.market_base_vault.to_account_metas(None));
-        account_metas.extend(self.market_quote_vault.to_account_metas(None));
-        account_metas.extend(self.base_mint.to_account_metas(None));
-        account_metas.extend(self.quote_mint.to_account_metas(None));
-        account_metas.extend(self.system_program.to_account_metas(None));
-        account_metas.extend(self.token_program.to_account_metas(None));
-        account_metas.extend(self.associated_token_program.to_account_metas(None));
-        account_metas.extend(self.event_authority.to_account_metas(None));
-        account_metas.extend(self.program.to_account_metas(None));
         account_metas
     }
 }
 
-
-pub(crate) mod __client_accounts_create_market {
-    use super::*;
-    use anchor_lang::prelude::borsh;
-    /// Generated client accounts for [`CreateMarket`].
-    pub struct CreateMarket {
-        pub market: anchor_lang::solana_program::pubkey::Pubkey,
-        pub market_authority: anchor_lang::solana_program::pubkey::Pubkey,
-        pub bids: anchor_lang::solana_program::pubkey::Pubkey,
-        pub asks: anchor_lang::solana_program::pubkey::Pubkey,
-        pub event_heap: anchor_lang::solana_program::pubkey::Pubkey,
-        pub payer: anchor_lang::solana_program::pubkey::Pubkey,
-        pub market_base_vault: anchor_lang::solana_program::pubkey::Pubkey,
-        pub market_quote_vault: anchor_lang::solana_program::pubkey::Pubkey,
-        pub base_mint: anchor_lang::solana_program::pubkey::Pubkey,
-        pub quote_mint: anchor_lang::solana_program::pubkey::Pubkey,
-        pub system_program: anchor_lang::solana_program::pubkey::Pubkey,
-        pub token_program: anchor_lang::solana_program::pubkey::Pubkey,
-        pub associated_token_program: anchor_lang::solana_program::pubkey::Pubkey,
-        pub event_authority: anchor_lang::solana_program::pubkey::Pubkey,
-        pub program: anchor_lang::solana_program::pubkey::Pubkey,
-    }
-
-    #[automatically_derived]
-    impl anchor_lang::ToAccountMetas for CreateMarket {
-        fn to_account_metas(
-            &self,
-            is_signer: Option<bool>,
-        ) -> Vec<anchor_lang::solana_program::instruction::AccountMeta> {
-            let mut account_metas = Vec::new();
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        self.market,
-                        true,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        self.market_authority,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        self.bids,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        self.asks,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        self.event_heap,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        self.payer,
-                        true,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        self.market_base_vault,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        self.market_quote_vault,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        self.base_mint,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        self.quote_mint,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        self.system_program,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        self.token_program,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        self.associated_token_program,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        self.event_authority,
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        self.program,
-                        false,
-                    ),
-                );
-            account_metas
-        }
-    }
-}
-
-
-pub(crate) mod __cpi_client_accounts_create_market {
-    use super::*;
-    /// Generated CPI struct of the accounts for [`CreateMarket`].
-    pub struct CreateMarket<'info> {
-        pub market: anchor_lang::solana_program::account_info::AccountInfo<'info>,
-        pub market_authority: anchor_lang::solana_program::account_info::AccountInfo<
-            'info,
-        >,
-        ///Accounts are initialized by client,
-        ///anchor discriminator is set first when ix exits,
-        pub bids: anchor_lang::solana_program::account_info::AccountInfo<'info>,
-        pub asks: anchor_lang::solana_program::account_info::AccountInfo<'info>,
-        pub event_heap: anchor_lang::solana_program::account_info::AccountInfo<'info>,
-        pub payer: anchor_lang::solana_program::account_info::AccountInfo<'info>,
-        pub market_base_vault: anchor_lang::solana_program::account_info::AccountInfo<
-            'info,
-        >,
-        pub market_quote_vault: anchor_lang::solana_program::account_info::AccountInfo<
-            'info,
-        >,
-        pub base_mint: anchor_lang::solana_program::account_info::AccountInfo<'info>,
-        pub quote_mint: anchor_lang::solana_program::account_info::AccountInfo<'info>,
-        pub system_program: anchor_lang::solana_program::account_info::AccountInfo<
-            'info,
-        >,
-        pub token_program: anchor_lang::solana_program::account_info::AccountInfo<'info>,
-        pub associated_token_program: anchor_lang::solana_program::account_info::AccountInfo<
-            'info,
-        >,
-        pub event_authority: anchor_lang::solana_program::account_info::AccountInfo<
-            'info,
-        >,
-        pub program: anchor_lang::solana_program::account_info::AccountInfo<'info>,
-    }
-    #[automatically_derived]
-    impl<'info> anchor_lang::ToAccountMetas for CreateMarket<'info> {
-        fn to_account_metas(
-            &self,
-            is_signer: Option<bool>,
-        ) -> Vec<anchor_lang::solana_program::instruction::AccountMeta> {
-            let mut account_metas = Vec::new();
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        anchor_lang::Key::key(&self.market),
-                        true,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        anchor_lang::Key::key(&self.market_authority),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        anchor_lang::Key::key(&self.bids),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        anchor_lang::Key::key(&self.asks),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        anchor_lang::Key::key(&self.event_heap),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        anchor_lang::Key::key(&self.payer),
-                        true,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        anchor_lang::Key::key(&self.market_base_vault),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new(
-                        anchor_lang::Key::key(&self.market_quote_vault),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        anchor_lang::Key::key(&self.base_mint),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        anchor_lang::Key::key(&self.quote_mint),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        anchor_lang::Key::key(&self.system_program),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        anchor_lang::Key::key(&self.token_program),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        anchor_lang::Key::key(&self.associated_token_program),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        anchor_lang::Key::key(&self.event_authority),
-                        false,
-                    ),
-                );
-            account_metas
-                .push(
-                    anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
-                        anchor_lang::Key::key(&self.program),
-                        false,
-                    ),
-                );
-            account_metas
-        }
-    }
-    #[automatically_derived]
-    impl<'info> anchor_lang::ToAccountInfos<'info> for CreateMarket<'info> {
-        fn to_account_infos(
-            &self,
-        ) -> Vec<anchor_lang::solana_program::account_info::AccountInfo<'info>> {
-            let mut account_infos = Vec::new();
-            account_infos
-                .extend(anchor_lang::ToAccountInfos::to_account_infos(&self.market));
-            account_infos
-                .extend(
-                    anchor_lang::ToAccountInfos::to_account_infos(&self.market_authority),
-                );
-            account_infos
-                .extend(anchor_lang::ToAccountInfos::to_account_infos(&self.bids));
-            account_infos
-                .extend(anchor_lang::ToAccountInfos::to_account_infos(&self.asks));
-            account_infos
-                .extend(anchor_lang::ToAccountInfos::to_account_infos(&self.event_heap));
-            account_infos
-                .extend(anchor_lang::ToAccountInfos::to_account_infos(&self.payer));
-            account_infos
-                .extend(
-                    anchor_lang::ToAccountInfos::to_account_infos(
-                        &self.market_base_vault,
-                    ),
-                );
-            account_infos
-                .extend(
-                    anchor_lang::ToAccountInfos::to_account_infos(
-                        &self.market_quote_vault,
-                    ),
-                );
-            account_infos
-                .extend(anchor_lang::ToAccountInfos::to_account_infos(&self.base_mint));
-            account_infos
-                .extend(anchor_lang::ToAccountInfos::to_account_infos(&self.quote_mint));
-            account_infos
-                .extend(
-                    anchor_lang::ToAccountInfos::to_account_infos(&self.system_program),
-                );
-            account_infos
-                .extend(
-                    anchor_lang::ToAccountInfos::to_account_infos(&self.token_program),
-                );
-            account_infos
-                .extend(
-                    anchor_lang::ToAccountInfos::to_account_infos(
-                        &self.associated_token_program,
-                    ),
-                );
-            account_infos
-                .extend(
-                    anchor_lang::ToAccountInfos::to_account_infos(&self.event_authority),
-                );
-            account_infos
-                .extend(anchor_lang::ToAccountInfos::to_account_infos(&self.program));
-            account_infos
-        }
-    }
-}
 
 solana_program::entrypoint!(entry);
 
