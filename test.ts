@@ -39,7 +39,7 @@ export async function main() {
 
     const wallet = new Wallet(authority);
 
-    const programId = new PublicKey("Gz3LsFdZbHqSuPtVidrgBrovE9qEeTcRAMCZuybPrnq5");
+    const programId = new PublicKey("HDqeN7jry5zLRLp3TAwV5TaLvasm47AcQuBzvux8kwUG");
     const provider = new AnchorProvider(connection, wallet, {});
     let client = new openbook.OpenBookV2Client( provider, programId);
 
